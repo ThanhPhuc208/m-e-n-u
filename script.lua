@@ -1,5 +1,5 @@
 -- (Creator = Thanh Phuc)
--- 💟 Thanh Phuc - Chroma Boombox + Hiệu Ứng Ngôi Sao Cầu Vồng Bay Phấp Phới Đập Bass Khớp 💟
+-- 💟 Thanh Phuc - Chroma Boombox + Ngôi Sao Cầu Vồng 3D Đập Bass Siêu Khớp 💟
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
@@ -14,14 +14,17 @@ LocalSound.Looped = true
 
 -- QUẢN LÝ BOOMBOX VÀ HIỆU ỨNG
 local FakeBoombox = nil
-local StarEmitter = nil -- Bộ phát ngôi sao phấp phới
+local LeftStar = nil
+local RightStar = nil
 local VisualizerBars = {}
 local loopConnection = nil 
 
 local function CreateFakeBoombox()
-    -- Dọn dẹp cũ tránh xung đột luồng khi reset nhân vật hoặc đổi bài
+    -- Dọn dẹp cũ tránh xung đột luồng
     if loopConnection then loopConnection:Disconnect() loopConnection = nil end
     if FakeBoombox then FakeBoombox:Destroy() FakeBoombox = nil end
+    if LeftStar then LeftStar:Destroy() LeftStar = nil end
+    if RightStar then RightStar:Destroy() RightStar = nil end
     for _, bar in pairs(VisualizerBars) do if bar.Part then bar.Part:Destroy() end end
     VisualizerBars = {}
     
@@ -31,7 +34,7 @@ local function CreateFakeBoombox()
     local torso = character:WaitForChild("UpperTorso", 5) or character:WaitForChild("Torso", 5)
     if not torso then return end
     
-    -- 1. Tạo Khối Boombox Chính (Neon Cầu Vồng)
+    -- 1. Tạo Khối Boombox Chính
     local part = Instance.new("Part")
     part.Name = "ThanhPhucChromaBoombox"
     part.Material = Enum.Material.Neon
@@ -49,27 +52,35 @@ local function CreateFakeBoombox()
     weld.C0 = CFrame.new(0, -0.2, 0.65) * CFrame.Angles(0, math.rad(180), math.rad(25))
     weld.Parent = part
     
-    -- =======================================================
-    -- [CẢI TIẾN]: TẠO HẠT NGÔI SAO BAY PHẤP PHỚI LẤP LÁNH XUNG QUANH
-    -- =======================================================
-    StarEmitter = Instance.new("ParticleEmitter")
-    StarEmitter.Texture = "rbxassetid://258128363" -- ID hạt lấp lánh/ngôi sao chuẩn, hiển thị 100% không lo bị lỗi
-    StarEmitter.LightEmission = 0.8 -- Độ phát sáng lung linh
-    StarEmitter.Transparency = NumberSequence.new({
-        NumberSequenceKeypoint.new(0, 1),   -- Lúc vừa sinh ra hơi mờ nhẹ
-        NumberSequenceKeypoint.new(0.2, 0), -- Hiện rõ ràng lấp lánh
-        NumberSequenceKeypoint.new(0.8, 0.3),-- Mờ dần khi bay xa
-        NumberSequenceKeypoint.new(1, 1)    -- Biến mất hẳn phấp phới
-    })
-    StarEmitter.Lifetime = NumberRange.new(0.8, 1.8) -- Thời gian sao bay lơ lửng trước khi tan biến
-    StarEmitter.Rate = 15 -- Số lượng sao bay mặc định khi nhạc nhẹ
-    StarEmitter.Speed = NumberRange.new(1.5, 3.5) -- Tốc độ bay thoang thoảng phấp phới
-    StarEmitter.SpreadAngle = Vector2.new(60, 60) -- Tỏa rộng ra xung quanh người và loa
-    StarEmitter.VelocityDiagonalRotation = true -- Giúp hạt tự xoay nghiêng lấp lánh khi bay
-    StarEmitter.Parent = part
-    -- =======================================================
-
-    -- 2. Tạo các thanh sóng nhạc trên đỉnh loa
+    -- 2. TẠO NGÔI SAO 3D ĐÍNH CHẶT VÀO MẶT TRƯỚC/SAU BOOMBOX
+    local function CreateStarMesh(name, offsetCFrame)
+        local star = Instance.new("SpecialMesh")
+        star.MeshType = Enum.MeshType.FileMesh
+        star.MeshId = "rbxassetid://6342045585" -- ID Mesh hình ngôi sao chuẩn 3D lấp lánh của Roblox
+        
+        local starPart = Instance.new("Part")
+        starPart.Name = name
+        starPart.Material = Enum.Material.Neon
+        starPart.CanCollide = false
+        starPart.Massless = true
+        starPart.Size = Vector3.new(0.6, 0.6, 0.2)
+        star.Parent = starPart
+        starPart.Parent = character
+        
+        local starWeld = Instance.new("Weld")
+        starWeld.Part0 = part
+        starWeld.Part1 = starPart
+        starWeld.C0 = offsetCFrame
+        starWeld.Parent = starPart
+        
+        return starPart, starWeld
+    end
+    
+    -- Đính 2 ngôi sao vào 2 bên rìa của Boombox nhìn cho cân đối và lấp lánh
+    local leftStarPart, leftStarWeld = CreateStarMesh("LeftStar", CFrame.new(-0.6, 0, 0.22))
+    local rightStarPart, rightStarWeld = CreateStarMesh("RightStar", CFrame.new(0.6, 0, 0.22))
+    
+    -- 3. Tạo các thanh sóng nhạc trên đỉnh loa
     local barCount = 5 
     local barWidth = baseSize.X / barCount 
     for i = 1, barCount do
@@ -91,8 +102,9 @@ local function CreateFakeBoombox()
         table.insert(VisualizerBars, {Part = bar, Weld = barWeld, Index = i})
     end
     
-    -- 3. VÒNG LẶP XỬ LÝ ĐẬP BASS KHỚP 100% + ĐỔI MÀU CẦU VỒNG HẠT
+    -- 4. VÒNG LẶP XỬ LÝ ĐẬP BASS SIÊU KHỚP VÀ CHẠY MÀU CẦU VỒNG
     local hue = 0
+    local starRotation = 0
     
     loopConnection = RunService.RenderStepped:Connect(function()
         if not part or not part.Parent or not part:IsDescendantOf(workspace) then
@@ -100,40 +112,40 @@ local function CreateFakeBoombox()
             return
         end
         
-        -- Thuật toán bóc tách nhịp Bass (Lọc bỏ âm cực nhỏ, khuếch đại nhịp trống)
+        -- Xử lý độ lớn âm thanh bằng thuật toán lọc Bass nhạy hơn
         local loudness = LocalSound.PlaybackLoudness
-        local normLoudness = math.clamp((loudness - 50) / 270, 0, 1) 
+        local normLoudness = math.clamp((loudness - 40) / 280, 0, 1) -- Lọc bỏ tạp âm, giữ lại Bass chính sâu hơn
         
-        -- Cầu vồng đổi màu mượt mà theo thời gian
-        local speedMultiplier = 1 + (normLoudness * 3.5)
+        -- Đồng bộ màu sắc cầu vồng chạy nhanh hơn khi nhạc đập mạnh
+        local speedMultiplier = 1 + (normLoudness * 4)
         hue = (hue + (0.5 * speedMultiplier)) % 360 
         local mainColor = Color3.fromHSV(hue / 360, 1, 1)
+        local starColor = Color3.fromHSV((hue + 60) % 360, 1, 1) -- Ngôi sao lệch màu một chút để tạo điểm nhấn
         
-        -- Áp màu cho Boombox
         part.Color = mainColor
         
-        -- ĐẬP BASS SIÊU KHỚP: Loa giật nảy cực mạnh theo nhịp trống thực tế
-        local scaleFactor = 1 + (normLoudness * 0.38) 
+        -- ĐẬP BASS KHỚP 100%: Tăng mạnh tỉ lệ co giãn dựa theo nhịp Bass thực tế
+        local scaleFactor = 1 + (normLoudness * 0.35) -- Tăng biên độ giật để loa đập rõ ràng từng nhịp
         part.Size = Vector3.new(baseSize.X * scaleFactor, baseSize.Y * scaleFactor, baseSize.Z * scaleFactor)
         
-        -- ĐỒNG BỘ HIỆU ỨNG HẠT NGÔI SAO THEO BASS
-        if StarEmitter then
-            -- Khi Bass đập mạnh, sao phóng ra dồn dập (lên tới 60 hạt/giây), nhạc tắt thì bay lai rai phấp phới
-            StarEmitter.Rate = 12 + (normLoudness * 48)
-            -- Kích thước hạt ngôi sao tự động to lên theo nhịp Bass
-            StarEmitter.Size = NumberSequence.new({
-                NumberSequenceKeypoint.new(0, 0.25 * scaleFactor),
-                NumberSequenceKeypoint.new(1, 0.55 * scaleFactor)
-            })
-            -- Ép các ngôi sao đổi màu cầu vồng liên tục giống hệt màu loa!
-            StarEmitter.Color = ColorSequence.new(mainColor)
+        -- Xử lý 2 ngôi sao đính kèm (vừa tự xoay tròn vừa đập to nhỏ khớp theo loa)
+        starRotation = (starRotation + 3) % 360
+        if leftStarPart and leftStarPart.Parent then
+            leftStarPart.Color = starColor
+            leftStarPart.Size = Vector3.new(0.6 * scaleFactor, 0.6 * scaleFactor, 0.2)
+            leftStarWeld.C0 = CFrame.new(-0.6 * scaleFactor, 0, 0.22) * CFrame.Angles(0, 0, math.rad(starRotation))
+        end
+        if rightStarPart and rightStarPart.Parent then
+            rightStarPart.Color = starColor
+            rightStarPart.Size = Vector3.new(0.6 * scaleFactor, 0.6 * scaleFactor, 0.2)
+            rightStarWeld.C0 = CFrame.new(0.6 * scaleFactor, 0, 0.22) * CFrame.Angles(0, 0, math.rad(-starRotation))
         end
         
-        -- Cập nhật thanh sóng nhạc nhấp nhô nhạy bén
+        -- Cập nhật thanh sóng nhạc nhấp nhô bám sát theo khối hộp khi co giãn
         for _, item in pairs(VisualizerBars) do
             if item.Part and item.Part.Parent then
                 local waveFactor = math.sin(tick() * 16 + item.Index) * 0.15
-                local targetHeight = math.clamp((normLoudness * 0.75) + waveFactor, 0.05, 0.85)
+                local targetHeight = math.clamp((normLoudness * 0.8) + waveFactor, 0.05, 0.9)
                 
                 item.Part.Size = Vector3.new(barWidth * scaleFactor, targetHeight, item.Part.Size.Z)
                 
@@ -148,7 +160,7 @@ local function CreateFakeBoombox()
     end)
 end
 
--- TỰ ĐỘNG ĐEO LẠI KHI DIE (Khóa dính mãi mãi, hồi sinh tự tạo lại vòng hạt ngôi sao)
+-- TỰ ĐỘNG ĐEO LẠI KHI DIE (Khóa chặt vĩnh viễn trên lưng, hồi sinh là xuất hiện lại ngay)
 LocalPlayer.CharacterAdded:Connect(function(char)
     char:WaitForChild("Humanoid")
     task.wait(0.5) 
@@ -217,10 +229,9 @@ PlayBtn.MouseButton1Click:Connect(function()
         LocalSound.SoundId = "rbxassetid://" .. cleanID
         LocalSound:Play()
         CreateFakeBoombox()
-        print("Thanh Phuc đã kích hoạt hiệu ứng Ngôi sao bay phấp phới cầu vồng thành công!")
+        print("Thanh Phuc đã cập nhật bài hát mới thành công, hiệu ứng ngôi sao đập cực khớp!")
     else
         InputBox.Text = ""
         InputBox.PlaceholderText = "ID không hợp lệ!"
     end
 end)
-
